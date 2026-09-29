@@ -8,7 +8,10 @@ from typing import Any, Awaitable, Callable, Optional, List, Tuple
 
 from aurelian.utils.async_utils import run_sync
 import click
-from pydantic_ai.models.openai import OpenAIModel
+try:
+    from pydantic_ai.models.openai import OpenAIChatModel as OpenAIModel
+except ImportError:
+    from pydantic_ai.models.openai import OpenAIModel
 from pydantic_ai.providers.openai import OpenAIProvider
 
 from aurelian import __version__

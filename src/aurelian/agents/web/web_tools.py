@@ -5,7 +5,10 @@ from pydantic import BaseModel, Field
 
 from aurelian.utils.search_utils import web_search
 from pydantic_ai import Agent
-from pydantic_ai.models.openai import OpenAIModel
+try:
+    from pydantic_ai.models.openai import OpenAIChatModel as OpenAIModel
+except ImportError:
+    from pydantic_ai.models.openai import OpenAIModel
 
 
 class Citation(BaseModel):
