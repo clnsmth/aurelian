@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """
-Extract ENVO ontology terms for MIxS environmental context tiers.
+Extract ENVO ontology terms for MIxS environmental context tiers and process categories.
 
 This script uses Aurelian's Ontology Mapper agent to analyze study abstract and methods
-text and identify top candidate terms from the Environment Ontology (ENVO) for three
-standardized MIxS categories:
+text and identify top candidate terms from the Environment Ontology (ENVO) for five
+categories:
 1. env_broad_scale: Major environmental system / biome (coarse spatial grain, subclasses of ENVO:00000428)
 2. env_local_scale: Local vicinity entities with causal influence (finer spatial grain)
 3. env_medium: Environmental material immediately surrounding specimen (subclasses of ENVO:00010483)
+4. [placeholder: env_system_process]: Natural/environmental processes (subclasses of ENVO:02500000)
+5. [placeholder: env_intervention_process]: Anthropogenic modulatory interventions (subclasses of ENVO:02500026)
 """
 
 import argparse
@@ -17,6 +19,7 @@ from typing import Optional
 
 # Ensure aurelian is loaded to register pydantic-ai 2.x backward compatibility shims
 import aurelian  # noqa: F401
+from pydantic_ai import UsageLimits
 from aurelian.agents.ontology_mapper.ontology_mapper_agent import ontology_mapper_agent
 from aurelian.agents.ontology_mapper.ontology_mapper_config import OntologyMapperDependencies
 
@@ -93,8 +96,8 @@ DEFAULT_METHODS = """
 
 PROMPT_TEMPLATE = """
 Please analyze the provided study abstract and methods to identify and map the highest matching
-terms from the ENVO (Environment Ontology) across the following three standardized MIxS environmental
-context categories:
+terms from the ENVO (Environment Ontology) across the following five categories (three standardized
+MIxS environmental context categories plus two major process categories):
 
 ## 1. Broad-Scale Environmental Context (`env_broad_scale`)
 - **Definition**: The major environmental system the sample or specimen came from. Coarse spatial grain
@@ -114,6 +117,16 @@ context categories:
   (e.g. freshwater, lake water, surface water) and NOT discrete countable entities.
 - **Guidelines**: See https://github.com/EnvironmentOntology/envo/wiki/Using-ENVO-with-MIxS
 
+## 4. Environmental System Process (`[placeholder: env_system_process]`)
+- **Definition**: Major natural, physical, geological, or hydrological processes occurring in the system described
+  in the text (e.g. glacial formation/deposition, water depth fluctuation, seasonal hydrological cycle).
+- **Recommended Range**: Subclasses of 'environmental system process' (`ENVO:02500000`, http://purl.obolibrary.org/obo/ENVO_02500000).
+
+## 5. Anthropogenic Modulatory Intervention Process (`[placeholder: env_intervention_process]`)
+- **Definition**: Major human actions, management practices, or intentional interventions that monitor, modulate,
+  or conserve the environmental system described in the text (e.g. municipal watershed management, biodiversity conservation/monitoring, ecological survey).
+- **Recommended Range**: Subclasses of 'anthropogenic modulatory intervention process' (`ENVO:02500026`, http://purl.obolibrary.org/obo/ENVO_02500026).
+
 ---
 
 ### Study Abstract:
@@ -125,16 +138,16 @@ context categories:
 ---
 
 ### Instructions:
-1. Use the `search_terms` tool with ontology_id="envo" to search for and verify candidate terms in ENVO.
-2. For each of the three MIxS categories, present the best matching term(s).
+1. Use the `search_terms` tool with ontology_id="envo" to search for and verify candidate terms in ENVO. Focus on direct ontology searches (e.g. biomes, freshwater features, water materials, hydrological/geological processes, and environmental monitoring/ecosystem management terms) and minimize unnecessary web search calls.
+2. For each of the five categories, present the best matching term(s).
 3. Include for each match:
-   - **MIxS Field**: (`env_broad_scale`, `env_local_scale`, or `env_medium`)
+   - **Category / Predicate**: (`env_broad_scale`, `env_local_scale`, `env_medium`, `[placeholder: env_system_process]`, or `[placeholder: env_intervention_process]`)
    - **ENVO Term ID**: (e.g. `ENVO:00000021`)
    - **Label**: (e.g. `freshwater lake`)
    - **Bioregistry Link**: (e.g. `https://bioregistry.io/ENVO:00000021`)
    - **Match Type / Confidence**: (Exact, Partial, Semantic)
-   - **Rationale**: Explain why this term was selected based on the study text and MIxS category guidelines.
-4. Format the final summary as a clean Markdown table followed by category details.
+   - **Rationale**: Explain why this term was selected based on the study text, category definitions, and root class hierarchy.
+4. Format the final summary as a clean 5-row Markdown table followed by detailed profiles for each category.
 """
 
 
@@ -156,8 +169,11 @@ def extract_envo_context(
 
     prompt = PROMPT_TEMPLATE.format(abstract=abstract, methods=methods)
 
-    # Run the agent synchronously
-    run_kwargs = {"deps": deps}
+    # Run the agent synchronously with generous limits for multi-category ontology search
+    run_kwargs = {
+        "deps": deps,
+        "usage_limits": UsageLimits(request_limit=120),
+    }
     if model:
         run_kwargs["model"] = model
 
@@ -199,7 +215,7 @@ def main():
             methods = f.read().strip()
 
     print(f"Extracting ENVO terms using model: {args.model}")
-    print("Categories: env_broad_scale, env_local_scale, env_medium")
+    print("Categories: env_broad_scale, env_local_scale, env_medium, env_system_process, env_intervention_process")
     print("=" * 60)
 
     try:

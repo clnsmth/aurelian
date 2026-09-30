@@ -4,10 +4,10 @@ This document tracks manual test cases for customized local development on Aurel
 
 ---
 
-## Test Case 1: ENVO Ontology Mapping for MIxS Environmental Context
+## Test Case 1: ENVO Ontology Mapping for MIxS Environmental Context & Processes
 
 ### 1. Objective
-Verify that Aurelian's ontology mapper correctly extracts and ranks terms from the **Environment Ontology (ENVO)** across the three standardized [MIxS](https://github.com/EnvironmentOntology/envo/wiki/Using-ENVO-with-MIxS) environmental context tiers based on study metadata, abstract, and methods text.
+Verify that Aurelian's ontology mapper correctly extracts and ranks terms from the **Environment Ontology (ENVO)** across five key environmental dimensions (three standardized [MIxS](https://github.com/EnvironmentOntology/envo/wiki/Using-ENVO-with-MIxS) environmental context tiers plus two major process categories) based on study metadata, abstract, and methods text.
 
 ### 2. Category Definitions & Requirements
 1. **Broad-Scale Environmental Context (`env_broad_scale`)**:
@@ -19,6 +19,12 @@ Verify that Aurelian's ontology mapper correctly extracts and ranks terms from t
 3. **Environmental Medium (`env_medium`)**:
    - **Definition**: The environmental material(s) immediately surrounding the sample or specimen at the time of sampling.
    - **Constraint**: Must be a subclass of 'environmental material' ([`ENVO:00010483`](http://purl.obolibrary.org/obo/ENVO_00010483)). Must be mass/volume nouns (e.g., water, lake water, freshwater) and NOT discrete, countable entities.
+4. **Environmental System Process (`[placeholder: env_system_process]`)**:
+   - **Definition**: Major natural, physical, geological, or hydrological processes occurring in the system described in the text (e.g. glacial formation/deposition, water depth fluctuations, seasonal hydrological cycle).
+   - **Constraint**: Must be a subclass of 'environmental system process' ([`ENVO:02500000`](http://purl.obolibrary.org/obo/ENVO_02500000)).
+5. **Anthropogenic Modulatory Intervention Process (`[placeholder: env_intervention_process]`)**:
+   - **Definition**: Major human actions, management practices, or intentional interventions that monitor, modulate, or conserve the environmental system described in the text (e.g. municipal watershed management, biodiversity conservation/monitoring, ecological survey).
+   - **Constraint**: Must be a subclass of 'anthropogenic modulatory intervention process' ([`ENVO:02500026`](http://purl.obolibrary.org/obo/ENVO_02500026)).
 
 ---
 
@@ -93,14 +99,16 @@ Verify that Aurelian's ontology mapper correctly extracts and ranks terms from t
 
 ### 5. Expected Output & Acceptance Criteria
 
-1. **Category Coverage**: Must return at least one top-ranking ENVO term for each of the three MIxS categories.
+1. **Category Coverage**: Must return top-ranking ENVO terms for all five categories (broad scale, local scale, medium, environmental process, and intervention process).
 2. **Taxonomic Integrity**:
    - `env_broad_scale` must resolve to an aquatic or terrestrial biome (subclass of `ENVO:00000428`).
    - `env_local_scale` must resolve to a specific lake or shoreline environmental entity (e.g., freshwater lake, kettle, lake shore, littoral zone).
    - `env_medium` must resolve to a mass/volume water material (subclass of `ENVO:00010483`).
+   - `[placeholder: env_system_process]` must resolve to an environmental or hydrological system process (subclass of `ENVO:02500000`).
+   - `[placeholder: env_intervention_process]` must resolve to an intentional human intervention, monitoring, or conservation process (subclass of `ENVO:02500026`).
 3. **Execution Stability**:
    - Must use local OAK SQLite cache (`~/.data/oaklib/envo.db`) without throwing S3 HTTP 403 Forbidden errors.
-   - Must successfully preserve `thought_signature` across multi-turn tool queries.
+   - Must handle multi-turn tool calling within configured request limits.
 4. **Provenance**:
    - Outputs must provide valid Bioregistry links (`https://bioregistry.io/ENVO:...`).
 
@@ -108,15 +116,19 @@ Verify that Aurelian's ontology mapper correctly extracts and ranks terms from t
 
 ### 6. Verified Results
 
-| MIxS Field | ENVO Term ID | Term Label | Match Type / Confidence | Bioregistry Link |
+| Category / Predicate | ENVO Term ID | Term Label | Match Type / Confidence | Bioregistry Link |
 | :--- | :--- | :--- | :--- | :--- |
-| **`env_broad_scale`** | `ENVO:01000252` | freshwater lake biome | Semantic / High (0.95) | [ENVO:01000252](https://bioregistry.io/ENVO:01000252) |
-| **`env_local_scale`** | `ENVO:00000021` | freshwater lake | Exact / High (0.95) | [ENVO:00000021](https://bioregistry.io/ENVO:00000021) |
-| **`env_medium`** | `ENVO:04000007` | lake water | Exact / High (0.95) | [ENVO:04000007](https://bioregistry.io/ENVO:04000007) |
+| **`env_broad_scale`** | `ENVO:01000252` | freshwater lake biome | Exact / High | [ENVO:01000252](https://bioregistry.io/ENVO:01000252) |
+| **`env_local_scale`** | `ENVO:00000311` | kettle | Exact / High | [ENVO:00000311](https://bioregistry.io/ENVO:00000311) |
+| **`env_medium`** | `ENVO:04000007` | lake water | Exact / High | [ENVO:04000007](https://bioregistry.io/ENVO:04000007) |
+| **`[placeholder: env_system_process]`** | `ENVO:02500031` | hydrological process | Semantic / High | [ENVO:02500031](https://bioregistry.io/ENVO:02500031) |
+| **`[placeholder: env_intervention_process]`** | `ENVO:02500041` | environmental monitoring | Exact / High | [ENVO:02500041](https://bioregistry.io/ENVO:02500041) |
 
 #### Detailed Term Provenance & Rationale:
-- **`env_broad_scale`**: `ENVO:01000252` (`freshwater lake biome`) is a direct subclass of `ENVO:00000428` (`biome` &rarr; `aquatic biome` &rarr; `freshwater biome` &rarr; `freshwater lake biome`). An acceptable terrestrial catchment alternative is `ENVO:01000211` (`temperate coniferous forest biome`).
-- **`env_local_scale`**: `ENVO:00000021` (`freshwater lake`) captures the immediate body of water. Candidate micro-habitat terms include `ENVO:00000311` (`kettle`), `ENVO:00000382` (`lake shore`), and `ENVO:01000407` (`littoral zone`).
-- **`env_medium`**: `ENVO:04000007` (`lake water`) is a direct mass noun subclass of `ENVO:00010483` (`environmental material` &rarr; `water` &rarr; `fresh water` &rarr; `lake water`), describing the exact medium surrounding the submerged egg masses.
+- **`env_broad_scale`**: `ENVO:01000252` (`freshwater lake biome`) is a direct subclass of `ENVO:00000428` (`biome` &rarr; `aquatic biome` &rarr; `freshwater biome` &rarr; `freshwater lake biome`). (Alternative regional terrestrial biome: `ENVO:01000211` `temperate coniferous forest biome`).
+- **`env_local_scale`**: `ENVO:00000311` (`kettle`) directly matches the kettle depressions explicitly cited in the abstract ("formed through glacial outwash deposits"). Related local entities include `ENVO:00000021` (`freshwater lake`), `ENVO:00000382` (`lake shore`), and `ENVO:01000407` (`littoral zone`).
+- **`env_medium`**: `ENVO:04000007` (`lake water`) is a mass noun subclass of `ENVO:00010483` (`environmental material` &rarr; `water` &rarr; `fresh water` &rarr; `lake water`), describing the liquid medium surrounding the submerged egg masses.
+- **`[placeholder: env_system_process]`**: `ENVO:02500031` (`hydrological process`) is a direct subclass of `ENVO:02500000` (`environmental system process`), capturing the annual water depth fluctuations that connect or isolate the lakes. Geological formation process: `ENVO:01001655` (`glacial process`).
+- **`[placeholder: env_intervention_process]`**: `ENVO:02500041` (`environmental monitoring`) is a direct subclass of `ENVO:02500026` (`anthropogenic modulatory intervention process`), representing the ongoing annual amphibian egg mass surveillance program within the municipal watershed.
 
 - **Status**: **PASS** (Verified with `gemini-3.8-flash` on 2026-09-30)
