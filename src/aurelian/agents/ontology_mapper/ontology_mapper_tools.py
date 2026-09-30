@@ -2,6 +2,7 @@
 Tools for the Ontology Mapper agent.
 """
 import asyncio
+from pathlib import Path
 from functools import lru_cache
 from typing import Dict, List, Optional
 
@@ -20,12 +21,15 @@ def get_ontology_adapter(ont: str):
     Get an adapter for the specified ontology.
 
     Args:
-        ont: The ontology ID to get an adapter for (e.g. cl, go, uberon)
+        ont: The ontology ID to get an adapter for (e.g. cl, go, uberon, envo)
 
     Returns:
         An OAK adapter for the specified ontology
     """
     ont = ont.lower()
+    local_db = Path.home() / ".data" / "oaklib" / f"{ont}.db"
+    if local_db.exists():
+        return get_adapter(f"sqlite:{local_db}")
     return get_adapter(f"sqlite:obo:{ont}")
 
 

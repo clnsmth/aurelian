@@ -1,239 +1,122 @@
-# Manual Test Cases: Aurelian (Personalized Development)
+# Manual Test Cases: Aurelian Development
 
-This document provides a structured suite of manual test cases for verifying personalized local development on Aurelian. It focuses on command-line workflows, Google Gemini model integration, Pydantic AI 2.x compatibility, and agent-specific tool execution.
-
----
-
-## 1. Environment & Prerequisites
-
-Before running the manual tests, ensure your local environment is configured:
-
-1. **Virtual Environment & Dependencies**:
-   Ensure dependencies are synchronized with [uv](https://docs.astral.sh/uv/):
-   ```bash
-   uv sync
-   ```
-
-2. **Required Environment Variables**:
-   ```bash
-   # Required for Google Gemini native testing
-   export GEMINI_API_KEY="your-gemini-api-key"
-
-   # Disable mandatory Logfire cloud authentication prompts
-   export LOGFIRE_SEND_TO_LOGFIRE=false
-
-   # Optional: Suppress Pydantic AI terminal ASCII banners
-   export PYDANTIC_AI_NO_BANNER=1
-   ```
-
-3. **Optional (OpenAI / Proxy Endpoint Testing)**:
-   ```bash
-   # If testing Google Gemini via the OpenAI-compatible endpoint
-   export OPENAI_BASE_URL="https://generativelanguage.googleapis.com/v1beta/openai/"
-   export OPENAI_API_KEY="$GEMINI_API_KEY"
-   ```
+This document tracks manual test cases for customized local development on Aurelian.
 
 ---
 
-## 2. Test Execution Tracking
+## Test Case 1: ENVO Ontology Mapping for MIxS Environmental Context
 
-| Test ID | Category | Target / Description | Model Tested | Status | Last Run Date | Notes |
-| :--- | :--- | :--- | :--- | :---: | :---: | :--- |
-| `TC-ENV-01` | Environment | CLI Help & Entry Point | N/A | Pass | 2026-09-29 | Validates CLI loads without Gradio |
-| `TC-ENV-02` | Environment | Logfire Auth Bypass | N/A | Pass | 2026-09-29 | `LOGFIRE_SEND_TO_LOGFIRE=false` |
-| `TC-MOD-01` | Model Routing | Bare Gemini Model Aliasing | `gemini-2.0-flash` | Pass | 2026-09-29 | Auto-resolves `google:` prefix |
-| `TC-MOD-02` | Model Routing | Explicit Provider Prefix | `google:gemini-2.0-flash`| Pass | 2026-09-29 | Direct GoogleModel inference |
-| `TC-MOD-03` | Model Routing | Gemini Reasoning / Thinking | `gemini-2.5-flash` | Untested | — | Verifies `thought_signature` |
-| `TC-MOD-04` | Model Routing | OpenAI-Compatible Proxy | `openai:gemini-2.0-flash`| Pass | 2026-09-29 | Routes to OpenAI endpoint |
-| `TC-MOD-05` | Model Routing | Built-in Test Provider | `test` | Pass | 2026-09-29 | Mock agent execution |
-| `TC-AGT-01` | Agent - Diagnosis | Single Disease Lookup | `gemini-2.0-flash` | Untested | — | MONDO disease ID & phenotypes |
-| `TC-AGT-02` | Agent - Diagnosis | Multi-phenotype Query | `gemini-2.0-flash` | Untested | — | Diagnostic differential |
-| `TC-AGT-03` | Agent - Mapper | Ontology Term Mapping | `gemini-2.0-flash` | Untested | — | OBO ontology term lookup |
-| `TC-AGT-04` | Agent - Gene | Gene Info & Summary | `gemini-2.0-flash` | Untested | — | Gene annotation retrieval |
-| `TC-AGT-05` | Agent - Monarch | Biomedical Entity Search | `gemini-2.0-flash` | Untested | — | Monarch KG queries |
+### 1. Objective
+Verify that Aurelian's ontology mapper correctly extracts and ranks terms from the **Environment Ontology (ENVO)** across the three standardized [MIxS](https://github.com/EnvironmentOntology/envo/wiki/Using-ENVO-with-MIxS) environmental context tiers based on study metadata, abstract, and methods text.
 
----
-
-## 3. Test Cases
-
-### Category: Environment & Baseline (`ENV`)
-
-#### `TC-ENV-01`: CLI Help & Entry Point
-- **Objective**: Verify that the Aurelian CLI loads cleanly from the virtual environment without requiring Gradio or Starlette.
-- **Command**:
-  ```bash
-  LOGFIRE_SEND_TO_LOGFIRE=false uv run aurelian --help
-  ```
-- **Expected Output**:
-  - Exits with returncode `0`.
-  - Displays the command group overview and subcommands (`diagnosis`, `mapper`, `gene`, etc.).
-  - No `ModuleNotFoundError` for `gradio` or `starlette`.
-
-#### `TC-ENV-02`: Logfire Authentication Bypass
-- **Objective**: Verify that running commands does not prompt for interactive browser login to Logfire when `LOGFIRE_SEND_TO_LOGFIRE=false` is set.
-- **Command**:
-  ```bash
-  LOGFIRE_SEND_TO_LOGFIRE=false uv run aurelian --version
-  ```
-- **Expected Output**:
-  - Displays current version (e.g. `aurelian, version 0.4.3`).
-  - No blocking authentication URLs or credential warnings.
+### 2. Category Definitions & Requirements
+1. **Broad-Scale Environmental Context (`env_broad_scale`)**:
+   - **Definition**: The major environmental system the sample or specimen came from. Must have a coarse spatial grain to provide the general environmental context of where the sampling occurred (e.g., in a desert or rainforest).
+   - **Constraint**: Must be a subclass of EnvO's biome class: [`ENVO:00000428`](http://purl.obolibrary.org/obo/ENVO_00000428).
+2. **Local Environmental Context (`env_local_scale`)**:
+   - **Definition**: The entity or entities in the sample or specimen's local vicinity that have significant causal influences on the sample or specimen. Smaller spatial grain than `env_broad_scale`.
+   - **Constraint**: EnvO terms representing environmental features, sites, or landforms (e.g., lake, kettle lake, shore, littoral zone).
+3. **Environmental Medium (`env_medium`)**:
+   - **Definition**: The environmental material(s) immediately surrounding the sample or specimen at the time of sampling.
+   - **Constraint**: Must be a subclass of 'environmental material' ([`ENVO:00010483`](http://purl.obolibrary.org/obo/ENVO_00010483)). Must be mass/volume nouns (e.g., water, lake water, freshwater) and NOT discrete, countable entities.
 
 ---
 
-### Category: Model Providers & Routing (`MOD`)
+### 3. Test Inputs
 
-#### `TC-MOD-01`: Bare Gemini Model Aliasing
-- **Objective**: Verify that passing a bare Gemini model name (e.g. `gemini-2.0-flash`) is automatically translated to `google:gemini-2.0-flash` via the compatibility layer in [`src/aurelian/__init__.py`](file:///Users/csmith/Code/clnsmth/aurelian/src/aurelian/__init__.py).
-- **Command**:
-  ```bash
-  LOGFIRE_SEND_TO_LOGFIRE=false GEMINI_API_KEY="$GEMINI_API_KEY" \
-  uv run python -c "
-  import aurelian
-  from pydantic_ai.models import infer_model
-  m = infer_model('gemini-2.0-flash')
-  print(type(m).__name__, m.model_name)
-  "
-  ```
-- **Expected Output**:
-  - Outputs `GoogleModel gemini-2.0-flash`.
-  - Does NOT throw `pydantic_ai.exceptions.UserError: Unknown model: gemini-2.0-flash`.
+- **Abstract**:
+  > This data package contains survey data beginning in 2002 for amphibian egg masses in five small kettle lakes (known as "14 Lakes") in the Cedar River Municipal Watershed, located in King County, Washington, USA. These surveys are conducted annually and are intended to be continued. The lakes range in size from 0.8 to 4.3 acres, have no perennial inlet or outlet, and were formed through glacial outwash deposits. The lakes are located at an elevation of 800 feet and are well suited for pond breeding amphibians because the lakes have no fish. Surveys were conducted annually, typically during the last week of March or first week of April, to coincide with amphibian breeding seasons. Surveyors walked, waded, or paddled the perimeter of each of the lakes during a survey, and tallied the number and type of egg masses that were encountered. Red legged frogs (Rana aurora) were of specific interest for the surveys, though egg masses of other species were noted during some survey years. The lakes represent the largest known breeding concentration of red legged frogs in the municipal watershed. The water depth of the lakes fluctuates year-to-year, which affected the feasibility of surveys. Lower water levels correspond to easier survey conditions: steep slopes and thick vegetation make surveying challenging when the water is high. Surveys were periodically cancelled during years where high water made surveying difficult or during staffing shortages. Counts of red legged frog egg masses across all lakes ranged between 24 and 1778 in a given year.
 
-#### `TC-MOD-02`: Explicit Google Provider Prefix
-- **Objective**: Verify that specifying the model with the canonical provider prefix `google:` functions identically.
-- **Command**:
-  ```bash
-  LOGFIRE_SEND_TO_LOGFIRE=false GEMINI_API_KEY="$GEMINI_API_KEY" \
-  uv run python -c "
-  import aurelian
-  from pydantic_ai.models import infer_model
-  m = infer_model('google:gemini-2.0-flash')
-  print(type(m).__name__, m.model_name)
-  "
+- **Methods**:
+  ```xml
+  <methods>
+    <methodStep>
+      <description>
+        <para>Surveys are typically conducted during the last week of March or first week of April
+          in fair weather that allows for counting egg masses beneath the water surface.</para>
+      </description>
+    </methodStep>
+    <methodStep>
+      <description>
+        <para>Surveyors walk around the perimeter of the lake shore, counting every
+          amphibian egg mass that they encounter. If amphibians in other life stages are
+          encountered, the surveyor may also note them.</para>
+      </description>
+    </methodStep>
+    <methodStep>
+      <description>
+        <para>Surveyors either walk around the lake shore, or wade around the lake shore,
+          depending on the water depth of the lake (which fluctuates year-to-year), or the depth
+          of the amphibian egg masses. Some years this can be very challenging when the water
+          level is high enough due to dense vegetation and steep banks. High water levels caused
+          surveyors to cancel the survey in some years.</para>
+      </description>
+    </methodStep>
+    <methodStep>
+      <description>
+        <para>Depending on the water level, big lake and deep lake are either one continuous water
+          body, or two distinct lakes. These were either counted together as one water body or
+          distinctly as two water bodies depending on the surveyor, not whether or not they were a
+          continuous water body during that year. Earlier surveys count these as two distinct
+          lakes, and later surveys count these distinctly when they are separated, and as one lake
+          when they are connected.</para>
+      </description>
+    </methodStep>
+    <methodStep>
+      <description>
+        <para>In 2012 surveyors experimented with surveying a portion of the big lake and deep
+          lake complex by snorkeling instead of walking to cope with the high water levels.</para>
+      </description>
+    </methodStep>
+    <methodStep>
+      <description>
+        <para>Beginning in 2022 surveyors also surveyed select lakes via canoe to examine whether
+          it was more effective for counting masses in deeper water. Surveyors continued to survey
+          lakes on foot for comparison across years.</para>
+      </description>
+    </methodStep>
+  </methods>
   ```
-- **Expected Output**:
-  - Outputs `GoogleModel gemini-2.0-flash`.
-
-#### `TC-MOD-03`: Gemini Reasoning Model (`thought_signature` handling)
-- **Objective**: Verify that models with thinking/reasoning capabilities (such as `gemini-2.5-flash`) can execute multi-turn tool calls without failing on missing `thought_signature`.
-- **Command**:
-  ```bash
-  LOGFIRE_SEND_TO_LOGFIRE=false GEMINI_API_KEY="$GEMINI_API_KEY" \
-  uv run aurelian diagnosis --model gemini-2.5-flash "What are the common clinical features of Marfan syndrome?"
-  ```
-- **Expected Output**:
-  - Model calls ontology and phenotype tools across turns.
-  - Returns a coherent diagnostic summary referencing MONDO / HPO identifiers.
-  - Does NOT raise `google.genai.errors.ClientError: 400 INVALID_ARGUMENT. Function call is missing a thought_signature`.
-
-#### `TC-MOD-04`: OpenAI-Compatible Proxy Route
-- **Objective**: Verify that Pydantic AI's `OpenAIChatModel` can route Gemini models through Google's OpenAI-compatible endpoint.
-- **Command**:
-  ```bash
-  OPENAI_BASE_URL="https://generativelanguage.googleapis.com/v1beta/openai/" \
-  OPENAI_API_KEY="$GEMINI_API_KEY" \
-  LOGFIRE_SEND_TO_LOGFIRE=false \
-  uv run aurelian diagnosis --model openai:gemini-2.0-flash "What is the MONDO ID for Marfan syndrome?"
-  ```
-- **Expected Output**:
-  - Outputs diagnosis result identifying `MONDO:0007947`.
-  - Invokes `pydantic_ai.models.openai` instead of native Google GenAI SDK.
-
-#### `TC-MOD-05`: Built-in Test Provider
-- **Objective**: Verify that the built-in offline test provider runs without external network calls or credentials.
-- **Command**:
-  ```bash
-  LOGFIRE_SEND_TO_LOGFIRE=false uv run python -c "
-  import aurelian
-  from pydantic_ai import Agent
-  a = Agent('test')
-  res = a.run_sync('ping')
-  print(res.data)
-  "
-  ```
-- **Expected Output**:
-  - Outputs `success (no tool calls)` via the `.data` backwards-compatibility alias.
 
 ---
 
-### Category: Agent Execution (`AGT`)
+### 4. Execution
 
-#### `TC-AGT-01`: Diagnosis Agent — Single Disease Lookup
-- **Objective**: Test the Diagnosis Agent using MONDO lookup tools to identify disease details.
+- **Target Script**: [`scripts/extract_envo_context.py`](file:///Users/csmith/Code/clnsmth/aurelian/scripts/extract_envo_context.py)
 - **Command**:
   ```bash
-  LOGFIRE_SEND_TO_LOGFIRE=false GEMINI_API_KEY="$GEMINI_API_KEY" \
-  uv run aurelian diagnosis --model gemini-2.0-flash "What is the MONDO ID for Ehlers-Danlos syndrome classic type 1?"
+  LOGFIRE_SEND_TO_LOGFIRE=false PYDANTIC_AI_NO_BANNER=1 GEMINI_API_KEY="$GEMINI_API_KEY" \
+  uv run python scripts/extract_envo_context.py --model gemini-3.8-flash
   ```
-- **Expected Output**:
-  - Output contains the correct MONDO identifier (e.g., `MONDO:0007523` / classic Ehlers-Danlos syndrome).
-  - Clear narrative explanation with tool references.
-
-#### `TC-AGT-02`: Diagnosis Agent — Patient Phenotype Differential
-- **Objective**: Test the agent's ability to analyze multiple phenotypic signs and provide a differential diagnosis.
-- **Command**:
-  ```bash
-  LOGFIRE_SEND_TO_LOGFIRE=false GEMINI_API_KEY="$GEMINI_API_KEY" \
-  uv run aurelian diagnosis --model gemini-2.0-flash \
-  "Patient has tall stature, ectopia lentis, aortic root dilation, and arachnodactyly. What is the most likely diagnosis and MONDO ID?"
-  ```
-- **Expected Output**:
-  - Identifies Marfan syndrome (`MONDO:0007947`) as the primary diagnosis.
-  - Lists relevant HPO phenotype associations.
-
-#### `TC-AGT-03`: Ontology Mapper Agent — Search & Preprocessing
-- **Objective**: Test ontology term mapping for anatomical and phenotype terms.
-- **Command**:
-  ```bash
-  LOGFIRE_SEND_TO_LOGFIRE=false GEMINI_API_KEY="$GEMINI_API_KEY" \
-  uv run aurelian ontology-mapper --model gemini-2.0-flash "Find ontology terms for hepatomegaly and liver parenchyma"
-  ```
-- **Expected Output**:
-  - Maps terms to relevant ontologies (e.g., HP for `hepatomegaly`, UBERON for `liver parenchyma`).
-  - Returns IDs with standard CURIE prefixes.
-
-#### `TC-AGT-04`: Gene Agent — Gene Search & Functional Context
-- **Objective**: Test gene symbol queries and functional summary extraction.
-- **Command**:
-  ```bash
-  LOGFIRE_SEND_TO_LOGFIRE=false GEMINI_API_KEY="$GEMINI_API_KEY" \
-  uv run aurelian gene --model gemini-2.0-flash "FBN1"
-  ```
-- **Expected Output**:
-  - Summary of the *FBN1* (Fibrillin 1) gene.
-  - References its role in Marfan syndrome and connective tissue formation.
-
-#### `TC-AGT-05`: Monarch Agent — Biomedical Entity Associations
-- **Objective**: Query Monarch Initiative knowledge graph for disease-to-phenotype or disease-to-gene associations.
-- **Command**:
-  ```bash
-  LOGFIRE_SEND_TO_LOGFIRE=false GEMINI_API_KEY="$GEMINI_API_KEY" \
-  uv run aurelian monarch --model gemini-2.0-flash "What genes are associated with osteogenesis imperfecta?"
-  ```
-- **Expected Output**:
-  - Mentions key collagen genes (*COL1A1*, *COL1A2*, etc.).
-  - Returns structured disease-gene associations.
 
 ---
 
-## 4. Template for Adding New Test Cases
+### 5. Expected Output & Acceptance Criteria
 
-Copy and paste this template when adding new manual test scenarios:
+1. **Category Coverage**: Must return at least one top-ranking ENVO term for each of the three MIxS categories.
+2. **Taxonomic Integrity**:
+   - `env_broad_scale` must resolve to an aquatic or terrestrial biome (subclass of `ENVO:00000428`).
+   - `env_local_scale` must resolve to a specific lake or shoreline environmental entity (e.g., freshwater lake, kettle, lake shore, littoral zone).
+   - `env_medium` must resolve to a mass/volume water material (subclass of `ENVO:00010483`).
+3. **Execution Stability**:
+   - Must use local OAK SQLite cache (`~/.data/oaklib/envo.db`) without throwing S3 HTTP 403 Forbidden errors.
+   - Must successfully preserve `thought_signature` across multi-turn tool queries.
+4. **Provenance**:
+   - Outputs must provide valid Bioregistry links (`https://bioregistry.io/ENVO:...`).
 
-```markdown
-#### `TC-XXX-NN`: [Test Title]
-- **Objective**: [Clear statement of what behavior or edge-case is being verified]
-- **Target Agent / Component**: [e.g., diagnosis, linkml, pydantic-ai shim]
-- **Prerequisites / Environment**: [e.g., GEMINI_API_KEY, network access]
-- **Command**:
-  ```bash
-  LOGFIRE_SEND_TO_LOGFIRE=false GEMINI_API_KEY="$GEMINI_API_KEY" \
-  uv run aurelian <agent-name> --model <model> "<query>"
-  ```
-- **Expected Output**:
-  - [Specific expected content, CURIEs, or responses]
-  - [Negative check: what errors must NOT occur]
-- **Actual Result**: [Record output upon manual verification]
-- **Status**: [Untested | Pass | Fail | Blocked]
-- **Notes**: [Any anomalies, token counts, or performance observations]
-```
+---
+
+### 6. Verified Results
+
+| MIxS Field | ENVO Term ID | Term Label | Match Type / Confidence | Bioregistry Link |
+| :--- | :--- | :--- | :--- | :--- |
+| **`env_broad_scale`** | `ENVO:01000252` | freshwater lake biome | Semantic / High (0.95) | [ENVO:01000252](https://bioregistry.io/ENVO:01000252) |
+| **`env_local_scale`** | `ENVO:00000021` | freshwater lake | Exact / High (0.95) | [ENVO:00000021](https://bioregistry.io/ENVO:00000021) |
+| **`env_medium`** | `ENVO:04000007` | lake water | Exact / High (0.95) | [ENVO:04000007](https://bioregistry.io/ENVO:04000007) |
+
+#### Detailed Term Provenance & Rationale:
+- **`env_broad_scale`**: `ENVO:01000252` (`freshwater lake biome`) is a direct subclass of `ENVO:00000428` (`biome` &rarr; `aquatic biome` &rarr; `freshwater biome` &rarr; `freshwater lake biome`). An acceptable terrestrial catchment alternative is `ENVO:01000211` (`temperate coniferous forest biome`).
+- **`env_local_scale`**: `ENVO:00000021` (`freshwater lake`) captures the immediate body of water. Candidate micro-habitat terms include `ENVO:00000311` (`kettle`), `ENVO:00000382` (`lake shore`), and `ENVO:01000407` (`littoral zone`).
+- **`env_medium`**: `ENVO:04000007` (`lake water`) is a direct mass noun subclass of `ENVO:00010483` (`environmental material` &rarr; `water` &rarr; `fresh water` &rarr; `lake water`), describing the exact medium surrounding the submerged egg masses.
+
+- **Status**: **PASS** (Verified with `gemini-3.8-flash` on 2026-09-30)

@@ -76,8 +76,18 @@ Return a JSON object with search instructions:
 Always provide the most appropriate ontology and refined search terms for optimal results.
 """
 
+import os
+
+def _get_preprocessor_model() -> str:
+    if model := os.environ.get("AURELIAN_PREPROCESSOR_MODEL"):
+        return model
+    if os.environ.get("GEMINI_API_KEY") and not os.environ.get("OPENAI_API_KEY"):
+        return "google:gemini-3.8-flash"
+    return "openai:gpt-4o-mini"
+
+
 query_preprocessor_agent = Agent(
-    model="openai:gpt-4o-mini",
+    model=_get_preprocessor_model(),
     result_type=Dict,
     system_prompt=QUERY_PREPROCESSOR_SYSTEM_PROMPT,
     defer_model_check=True,
