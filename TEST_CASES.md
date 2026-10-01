@@ -86,14 +86,61 @@ Verify that Aurelian's ontology mapper correctly extracts and ranks terms from t
 
 ---
 
-### 4. Execution
+### 4. Execution & Effort Level Configuration
 
-- **Target Script**: [`scripts/extract_envo_context.py`](file:///Users/csmith/Code/clnsmth/aurelian/scripts/extract_envo_context.py)
-- **Command**:
-  ```bash
-  LOGFIRE_SEND_TO_LOGFIRE=false PYDANTIC_AI_NO_BANNER=1 GEMINI_API_KEY="$GEMINI_API_KEY" \
-  uv run python scripts/extract_envo_context.py --model gemini-3.8-flash
-  ```
+The ENVO extraction script supports selecting both the **Gemini model version** and the **reasoning effort level** (analogous to thinking level/budget in reasoning models).
+
+#### Parameters:
+- **`--model <version>`**: Specifies the Gemini model identifier (e.g., `gemini-3.8-flash`, `gemini-2.5-pro`).
+- **`--effort <choice>`**: Specifies the categorical reasoning/thinking effort level:
+  - `minimal`: Minimum thinking floor.
+  - `low`: Low reasoning effort; rapid execution prioritizing speed.
+  - `medium`: Balanced reasoning effort.
+  - `high`: Deep multi-step reasoning with thorough tool validation.
+  - `xhigh`: Maximum reasoning depth (maps to high in Gemini).
+
+#### Authoritative Gemini-to-Pydantic AI Translation:
+Per official [Pydantic AI Thinking Provider Translation](https://pydantic.dev/docs/ai/capabilities/thinking/#provider-translation) and `pydantic_ai.models.google`:
+
+| Categorical Effort | Gemini 3+ (`thinking_level`) | Gemini 2.5 (`thinking_budget` in tokens) |
+| :--- | :--- | :--- |
+| **`minimal`** | `'LOW'` *(or `'MINIMAL'` on models supporting it)* | `128` *(minimum for 2.5 Pro)* |
+| **`low`** | `'LOW'` | `2,048` |
+| **`medium`** | `'MEDIUM'` | `8,192` |
+| **`high`** | `'HIGH'` | `24,576` |
+| **`xhigh`** | `'HIGH'` *(Gemini has no `xhigh`; maps to highest)* | `24,576` |
+
+*Note on Snapping (Gemini 3+)*: If a model's profile only exposes a subset of thinking levels (e.g. `gemini-3.1-flash-lite-image` which supports `MINIMAL` and `HIGH`), Pydantic AI automatically snaps intermediate values to the nearest supported level (`low` &rarr; `MINIMAL`, `medium`/`xhigh` &rarr; `HIGH`).
+
+#### Execution Examples:
+
+##### Example A: Minimal / Low Effort (Rapid execution, reduced token consumption)
+```bash
+LOGFIRE_SEND_TO_LOGFIRE=false PYDANTIC_AI_NO_BANNER=1 GEMINI_API_KEY="$GEMINI_API_KEY" \
+uv run python scripts/extract_envo_context.py --model gemini-3.8-flash --effort low
+```
+
+##### Example B: Balanced Effort
+```bash
+LOGFIRE_SEND_TO_LOGFIRE=false PYDANTIC_AI_NO_BANNER=1 GEMINI_API_KEY="$GEMINI_API_KEY" \
+uv run python scripts/extract_envo_context.py --model gemini-3.8-flash --effort medium
+```
+
+##### Example C: High / Maximum Effort (Deep reasoning with complete ontological chains)
+```bash
+LOGFIRE_SEND_TO_LOGFIRE=false PYDANTIC_AI_NO_BANNER=1 GEMINI_API_KEY="$GEMINI_API_KEY" \
+uv run python scripts/extract_envo_context.py --model gemini-3.8-flash --effort high
+```
+
+##### Example D: Specifying Model Version and File Inputs
+```bash
+LOGFIRE_SEND_TO_LOGFIRE=false PYDANTIC_AI_NO_BANNER=1 GEMINI_API_KEY="$GEMINI_API_KEY" \
+uv run python scripts/extract_envo_context.py \
+  --model gemini-3.8-flash \
+  --effort medium \
+  --abstract-file path/to/abstract.txt \
+  --methods-file path/to/methods.xml
+```
 
 ---
 
@@ -109,7 +156,10 @@ Verify that Aurelian's ontology mapper correctly extracts and ranks terms from t
 3. **Execution Stability**:
    - Must use local OAK SQLite cache (`~/.data/oaklib/envo.db`) without throwing S3 HTTP 403 Forbidden errors.
    - Must handle multi-turn tool calling within configured request limits.
-4. **Provenance**:
+4. **Effort Level Scaling**:
+   - `--effort low` / `--effort minimal` completes with zero or minimal dedicated thinking tokens.
+   - `--effort high` / `--effort xhigh` generates explicit reasoning/thought tokens (tracked via `output_reasoning_tokens` / `thoughts_tokens`).
+5. **Provenance**:
    - Outputs must provide valid Bioregistry links (`https://bioregistry.io/ENVO:...`).
 
 ---
@@ -131,4 +181,14 @@ Verify that Aurelian's ontology mapper correctly extracts and ranks terms from t
 - **`[placeholder: env_system_process]`**: `ENVO:02500031` (`hydrological process`) is a direct subclass of `ENVO:02500000` (`environmental system process`), capturing the annual water depth fluctuations that connect or isolate the lakes. Geological formation process: `ENVO:01001655` (`glacial process`).
 - **`[placeholder: env_intervention_process]`**: `ENVO:02500041` (`environmental monitoring`) is a direct subclass of `ENVO:02500026` (`anthropogenic modulatory intervention process`), representing the ongoing annual amphibian egg mass surveillance program within the municipal watershed.
 
-- **Status**: **PASS** (Verified with `gemini-3.8-flash` on 2026-09-30)
+#### Empirical Effort Level Metrics Comparison:
+
+| Metric | `--effort low` | `--effort high` |
+| :--- | :--- | :--- |
+| **Total Tool Requests** | 40 | 69 |
+| **Output Content Tokens** | 2,614 | 4,668 |
+| **Reasoning / Thought Tokens** | 0 | 7,151 |
+| **Total Output Tokens** | 2,614 | 11,819 |
+| **Output Detail Level** | Concise profiles | Full taxonomic hierarchy trees & candidate rationales |
+
+- **Status**: **PASS** (Verified with `gemini-3.8-flash` across `low` and `high` effort on 2026-09-30)

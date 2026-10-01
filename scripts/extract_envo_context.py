@@ -20,6 +20,7 @@ from typing import Optional
 # Ensure aurelian is loaded to register pydantic-ai 2.x backward compatibility shims
 import aurelian  # noqa: F401
 from pydantic_ai import UsageLimits
+from pydantic_ai.settings import ModelSettings
 from aurelian.agents.ontology_mapper.ontology_mapper_agent import ontology_mapper_agent
 from aurelian.agents.ontology_mapper.ontology_mapper_config import OntologyMapperDependencies
 
@@ -155,9 +156,21 @@ def extract_envo_context(
     abstract: str = DEFAULT_ABSTRACT,
     methods: str = DEFAULT_METHODS,
     model: str = "gemini-3.8-flash",
+    effort: Optional[str] = None,
     ontologies: Optional[list] = None,
-) -> str:
-    """Run the ontology mapper agent to extract ENVO context."""
+) -> tuple[str, Optional[object]]:
+    """Run the ontology mapper agent to extract ENVO context.
+
+    Args:
+        abstract: Study abstract text
+        methods: Study methods text
+        model: Model identifier (e.g., gemini-3.8-flash, gemini-2.5-pro)
+        effort: Reasoning/thinking effort level ('minimal', 'low', 'medium', 'high', 'xhigh')
+        ontologies: List of ontologies to search (defaults to ['envo'])
+
+    Returns:
+        Tuple of (output_markdown_string, run_usage_object)
+    """
     if ontologies is None:
         ontologies = ["envo"]
 
@@ -176,9 +189,13 @@ def extract_envo_context(
     }
     if model:
         run_kwargs["model"] = model
+    if effort:
+        run_kwargs["model_settings"] = ModelSettings(thinking=effort)
 
     result = ontology_mapper_agent.run_sync(prompt, **run_kwargs)
-    return result.data if hasattr(result, "data") else result.output
+    text_output = result.data if hasattr(result, "data") else result.output
+    usage = getattr(result, "usage", None)
+    return text_output, usage
 
 
 def main():
@@ -189,6 +206,13 @@ def main():
         "--model",
         default=os.environ.get("AURELIAN_MODEL", "gemini-3.8-flash"),
         help="Model identifier (default: gemini-3.8-flash)",
+    )
+    parser.add_argument(
+        "--effort",
+        type=str,
+        choices=["minimal", "low", "medium", "high", "xhigh"],
+        default=None,
+        help="Reasoning/thinking effort level for Gemini models: minimal, low, medium, high, xhigh (optional)",
     )
     parser.add_argument(
         "--abstract-file",
@@ -214,17 +238,34 @@ def main():
         with open(args.methods_file, "r", encoding="utf-8") as f:
             methods = f.read().strip()
 
-    print(f"Extracting ENVO terms using model: {args.model}")
+    effort_str = f" (effort: {args.effort})" if args.effort else ""
+    print(f"Extracting ENVO terms using model: {args.model}{effort_str}")
     print("Categories: env_broad_scale, env_local_scale, env_medium, env_system_process, env_intervention_process")
     print("=" * 60)
 
     try:
-        output = extract_envo_context(
+        output, usage = extract_envo_context(
             abstract=abstract,
             methods=methods,
             model=args.model,
+            effort=args.effort,
         )
         print("\n" + output)
+
+        if usage:
+            print("\n" + "=" * 60)
+            print("Usage Metrics:")
+            print(f"  Requests: {getattr(usage, 'requests', 'N/A')}")
+            print(f"  Input Tokens: {getattr(usage, 'input_tokens', 'N/A')}")
+            print(f"  Output Tokens: {getattr(usage, 'output_tokens', 'N/A')}")
+            reasoning_tokens = getattr(usage, "output_reasoning_tokens", None)
+            if reasoning_tokens is not None:
+                print(f"  Reasoning Tokens: {reasoning_tokens}")
+            details = getattr(usage, "details", None)
+            if details and isinstance(details, dict):
+                thoughts = details.get("thoughts_tokens")
+                if thoughts is not None:
+                    print(f"  Thought Tokens: {thoughts}")
     except Exception as e:
         print(f"Error during ENVO extraction: {e}", file=sys.stderr)
         sys.exit(1)
