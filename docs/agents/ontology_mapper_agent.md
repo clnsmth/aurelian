@@ -59,6 +59,8 @@ By default, the agent supports the following ontologies:
 - CL: Cell Ontology
 - MP: Mammalian Phenotype Ontology
 - ENVO: Environment Ontology
+- OBI: Ontology for Biomedical Investigations
+- ECSO: Ecosystem Ontology
 
 Additional ontologies can be specified when starting the agent.
 

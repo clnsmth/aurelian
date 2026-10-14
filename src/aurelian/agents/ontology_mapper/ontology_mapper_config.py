@@ -18,7 +18,7 @@ class OntologyMapperDependencies(HasWorkdir):
     """
     max_search_results: int = 30
     ontologies: List[str] = field(
-        default_factory=lambda: ["mondo", "hp", "go", "uberon", "cl", "mp", "envo", "obi"]
+        default_factory=lambda: ["mondo", "hp", "go", "uberon", "cl", "mp", "envo", "obi", "ecso"]
     )
     
     def __post_init__(self):

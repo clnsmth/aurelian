@@ -2,10 +2,13 @@
 Tools for the Ontology Mapper agent.
 """
 import asyncio
+import os
+import re
 from pathlib import Path
 from functools import lru_cache
-from typing import Dict, List, Optional
+from typing import Dict, List
 
+import pystow
 from oaklib import get_adapter
 from pydantic_ai import RunContext, ModelRetry
 
@@ -15,18 +18,56 @@ from .ontology_mapper_config import OntologyMapperDependencies, get_config
 # Removed unused query_router import
 
 
+def normalize_curie(term_id: str) -> str:
+    """
+    Normalize ontology term identifiers to standard CURIE format.
+
+    Specifically transforms DataONE ECSO URIs to standard CURIEs, e.g.:
+    http://purl.dataone.org/odo/ECSO_00001105 -> ECSO:00001105
+    """
+    return re.sub(
+        r"^<?https?://(?:www\.)?purl\.dataone\.org/odo/ECSO_(\d+)>?$",
+        r"ECSO:\1",
+        term_id,
+    )
+
+
 @lru_cache
 def get_ontology_adapter(ont: str):
     """
     Get an adapter for the specified ontology.
 
     Args:
-        ont: The ontology ID to get an adapter for (e.g. cl, go, uberon, envo)
+        ont: The ontology ID to get an adapter for (e.g. cl, go, uberon, envo, ecso)
 
     Returns:
         An OAK adapter for the specified ontology
     """
     ont = ont.lower()
+    if ont == "ecso":
+        ecso_env = os.environ.get("ECSO_PATH")
+        if ecso_env:
+            ecso_path = Path(ecso_env)
+            if ecso_path.exists():
+                if ecso_path.suffix.lower() in [".owl", ".obo"]:
+                    return get_adapter(f"pronto:{ecso_path}")
+                return get_adapter(f"sqlite:{ecso_path}")
+
+        local_db = Path.home() / ".data" / "oaklib" / "ecso.db"
+        if local_db.exists():
+            return get_adapter(f"sqlite:{local_db}")
+
+        local_owl = Path.home() / ".data" / "oaklib" / "ECSO8.owl"
+        if local_owl.exists():
+            owl_path = local_owl
+        else:
+            owl_url = os.environ.get(
+                "ECSO_OWL_URL",
+                "https://raw.githubusercontent.com/DataONEorg/sem-prov-ontologies/main/ecso/ECSO8.owl",
+            )
+            owl_path = pystow.ensure("oaklib", name="ECSO8.owl", url=owl_url)
+        return get_adapter(f"pronto:{owl_path}")
+
     local_db = Path.home() / ".data" / "oaklib" / f"{ont}.db"
     if local_db.exists():
         return get_adapter(f"sqlite:{local_db}")
@@ -90,8 +131,9 @@ async def search_terms(
         query_lower = query.lower().strip()
         
         for term_id, label in results:
+            term_id = normalize_curie(term_id)
             # Determine match type and confidence for curator
-            label_lower = label.lower()
+            label_lower = (label or "").lower()
             
             if label_lower == query_lower:
                 match_type = "exact_label"

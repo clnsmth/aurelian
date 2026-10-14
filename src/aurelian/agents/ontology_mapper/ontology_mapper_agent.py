@@ -30,6 +30,9 @@ ONTOLOGY_MAPPER_SYSTEM_PROMPT = (
     "\n  Examples: heart, liver, brain tissue, blood vessel, nervous system"
     "\n**CL (Cell Ontology)** - Cell types, cell lines, cellular components"
     "\n  Examples: T cell, neuron, stem cell, epithelial cell, cancer cell line"
+    "\n**ECSO (Ecosystem Ontology)** - Scientific measurements, ecological metrics, environmental characteristics, rates, fluxes"
+    "\n  Examples: carbon flux, gross primary production, biomass density, respiration rate, leaf area index"
+    "\n  Note: Contrast with ENVO (environments/biomes/materials) and OBI (assays/protocols/instruments)"
     
     "\n\n## SPECIAL NOTES FOR GENES & PROTEINS:"
     "\n**IMPORTANT**: Gene symbols and protein names (like TP53, BRCA1, etc.) are typically NOT well-represented in OBO ontologies."

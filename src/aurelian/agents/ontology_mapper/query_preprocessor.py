@@ -37,6 +37,9 @@ You are a biomedical query analysis expert. Your job is to analyze user queries 
 - Body parts, organs → **UBERON**
 - Cell types → **CL**
 
+**Measurements & Ecosystem Observations:**
+- Measurements, rates, flux, biomass, ecological characteristics → **ECSO**
+
 ## Output Format:
 Return a JSON object with search instructions:
 
@@ -63,6 +66,9 @@ Return a JSON object with search instructions:
 ```
 
 ## Examples:
+
+**Query:** "measurements of gross primary production and carbon flux"
+→ Search ECSO for "Gross Primary Production", Search ECSO for "Carbon Flux"
 
 **Query:** "BRCA1 mutations in breast cancer"
 → Search HGNC for "BRCA1", Search MONDO for "breast cancer"
