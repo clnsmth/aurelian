@@ -54,6 +54,9 @@ def test_normalize_curie():
     assert normalize_curie("MONDO:0004975") == "MONDO:0004975"
     # Non-ECSO URIs should remain unchanged
     assert normalize_curie("http://example.org/test") == "http://example.org/test"
+    # Empty and None values should remain unchanged
+    assert normalize_curie("") == ""
+    assert normalize_curie(None) is None
 
 
 def test_get_ontology_adapter_ecso():
@@ -77,6 +80,21 @@ def test_get_ontology_adapter_ecso_custom_env(tmp_path, monkeypatch):
     with patch("aurelian.agents.ontology_mapper.ontology_mapper_tools.get_adapter") as mock_get_adapter:
         get_ontology_adapter("ecso")
         mock_get_adapter.assert_called_once_with(f"sqlite:{dummy_db}")
+
+    get_ontology_adapter.cache_clear()
+
+
+def test_get_ontology_adapter_ecso_custom_owl_env(tmp_path, monkeypatch):
+    """Verify that ECSO_PATH pointing to an OWL file uses Pronto adapter."""
+    dummy_owl = tmp_path / "custom_ecso.owl"
+    dummy_owl.touch()
+
+    monkeypatch.setenv("ECSO_PATH", str(dummy_owl))
+    get_ontology_adapter.cache_clear()
+
+    with patch("aurelian.agents.ontology_mapper.ontology_mapper_tools.get_adapter") as mock_get_adapter:
+        get_ontology_adapter("ecso")
+        mock_get_adapter.assert_called_once_with(f"pronto:{dummy_owl}")
 
     get_ontology_adapter.cache_clear()
 

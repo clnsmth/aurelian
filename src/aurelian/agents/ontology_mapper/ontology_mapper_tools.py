@@ -25,6 +25,8 @@ def normalize_curie(term_id: str) -> str:
     Specifically transforms DataONE ECSO URIs to standard CURIEs, e.g.:
     http://purl.dataone.org/odo/ECSO_00001105 -> ECSO:00001105
     """
+    if not term_id or not isinstance(term_id, str):
+        return term_id
     return re.sub(
         r"^<?https?://(?:www\.)?purl\.dataone\.org/odo/ECSO_(\d+)>?$",
         r"ECSO:\1",

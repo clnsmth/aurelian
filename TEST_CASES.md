@@ -268,7 +268,7 @@ print(result.data)
 | **`R_SOIL_HET` (Soil Respiration)** | `ECSO:00000532` | Soil Heterotrophic Respiration Carbon Flux | Exact / High | [ECSO:00000532](https://bioregistry.io/ECSO:00000532) |
 | **`ANPP` (Aboveground NPP)** | `ECSO:00000301` | Aboveground Net Primary Production Carbon Flux | Exact / High | [ECSO:00000301](https://bioregistry.io/ECSO:00000301) |
 | **`TA` (Air Temperature)** | `ECSO:00000049` | Near_Surface_Air_Temperature_MOV | Exact / High | [ECSO:00000049](https://bioregistry.io/ECSO:00000049) |
-| **`TS` (Soil Temperature)** | `ECSO:00000053` | Average_Layer_Soil_Temperature_MOV | Exact / High | [ECSO:00000053](https://bioregistry.io/ECSO:0000053) |
+| **`TS` (Soil Temperature)** | `ECSO:00000053` | Average_Layer_Soil_Temperature_MOV | Exact / High | [ECSO:00000053](https://bioregistry.io/ECSO:00000053) |
 
 #### Term Provenance & Rationale:
 - **`ECSO:00000014` (`Net Ecosystem Exchange Carbon Flux`)**: Quantifies the net ecosystem exchange rate of carbon flux between biosphere and atmosphere.
