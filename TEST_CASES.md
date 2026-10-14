@@ -192,3 +192,89 @@ uv run python scripts/extract_envo_context.py \
 | **Output Detail Level** | Concise profiles | Full taxonomic hierarchy trees & candidate rationales |
 
 - **Status**: **PASS** (Verified with `gemini-3.8-flash` across `low` and `high` effort on 2026-09-30)
+
+---
+
+## Test Case 2: ECSO Ontology Mapping for Ecosystem Observations & Carbon Flux Measurements
+
+### 1. Objective
+Verify that Aurelian's ontology mapper correctly identifies and maps terms from the **Ecosystem Ontology (ECSO)** for ecosystem observations, carbon flux dynamics, primary productivity, respiration rates, and environmental state variables based on study abstracts, methods, and tabular dataset variable definitions.
+
+### 2. Category Definitions & Requirements
+1. **Net Carbon Exchange & Primary Productivity Fluxes**:
+   - **Definition**: Rates of gross or net carbon transfer between the atmosphere and ecosystem per unit ground area and time.
+   - **Key ECSO Entities**: Subclasses of carbon flux such as Net Ecosystem Exchange Carbon Flux (`ECSO:00000014`), Gross Primary Production Carbon Flux (`ECSO:00000020`), and Net Primary Production Carbon Flux (`ECSO:00000021`).
+2. **Ecosystem & Component Respiration Fluxes**:
+   - **Definition**: Metabolic release of CO2 by autotrophs (plants) and heterotrophs (microbes/fauna) in soil and vegetation.
+   - **Key ECSO Entities**: Respiration Carbon Flux (`ECSO:00000016`), Autotrophic Respiration Carbon Flux (`ECSO:00000017`), Heterotrophic Respiration Carbon Flux (`ECSO:00000018`), and Soil Heterotrophic Respiration Carbon Flux (`ECSO:00000532`).
+3. **Biomass & Productivity Accumulation**:
+   - **Definition**: Stand-level biomass quantities, pools, and annual increment rates.
+   - **Key ECSO Entities**: Aboveground Net Primary Production Carbon Flux (`ECSO:00000301`), Total Living Biomass Carbon Pool (`ECSO:00000343`), and Above Ground Woody Biomass (`ECSO:00000073`).
+4. **Environmental State & Micrometeorological Measurements**:
+   - **Definition**: Continuous environmental drivers regulating carbon fluxes.
+   - **Key ECSO Entities**: Near_Surface_Air_Temperature_MOV (`ECSO:00000049`) and Average_Layer_Soil_Temperature_MOV (`ECSO:00000053`).
+5. **Observation Properties / Measurement Types**:
+   - **Definition**: Generic characteristic / measurement typing from OBOE/ECSO.
+   - **Key ECSO Entities**: `flux_MeasurementType` (`ECSO:00000514`) and `biomass_MeasurementType` (`ECSO:00000513`).
+
+### 3. Test Inputs
+- **Abstract**:
+  > This dataset comprises multi-year eddy covariance and biometric carbon flux observations from a temperate mixed deciduous-coniferous forest stand in the Harvard Forest Long Term Ecological Research (LTER) site in Petersham, Massachusetts, USA. Half-hourly continuous micrometeorological measurements were combined with automated soil respiration chambers and annual biometric tree census surveys to quantify net ecosystem exchange (NEE), gross primary productivity (GPP), and total ecosystem respiration (Reco). Component respiration was partitioned into autotrophic and soil heterotrophic respiration fluxes. Aboveground net primary production (ANPP) and standing woody biomass pools were estimated through annual dendrometer measurements and litterfall collections. Tower micrometeorology tracked near-surface air temperature and multi-depth soil temperature profiles to assess thermal sensitivities of respiration and photosynthesis across seasonal transitions.
+- **Variable Table / Column Schema**:
+  | Variable Name | Description | Units | Target Dimension |
+  | :--- | :--- | :--- | :--- |
+  | `NEE` | Net ecosystem exchange of carbon dioxide | $\mu\text{mol CO}_2\text{ m}^{-2}\text{ s}^{-1}$ | Net Carbon Exchange |
+  | `GPP` | Gross primary production carbon flux | $\mu\text{mol C m}^{-2}\text{ s}^{-1}$ | Primary Production Flux |
+  | `RECO` | Total ecosystem respiration carbon flux | $\mu\text{mol CO}_2\text{ m}^{-2}\text{ s}^{-1}$ | Ecosystem Respiration |
+  | `R_SOIL_HET` | Soil heterotrophic respiration carbon flux | $\mu\text{mol CO}_2\text{ m}^{-2}\text{ s}^{-1}$ | Soil Respiration |
+  | `ANPP` | Aboveground net primary production carbon flux | $\text{g C m}^{-2}\text{ yr}^{-1}$ | Biomass Production |
+  | `TA_1` | Near-surface air temperature at tower top | $^\circ\text{C}$ | Environmental Driver |
+  | `TS_1` | Average layer soil temperature at 5 cm depth | $^\circ\text{C}$ | Environmental Driver |
+
+### 4. Execution Examples
+
+#### Example A: Query via CLI
+```bash
+LOGFIRE_SEND_TO_LOGFIRE=false PYDANTIC_AI_NO_BANNER=1 uv run python -m aurelian.cli mapper \
+  --ontologies ecso \
+  "Find the best ECSO terms for Net Ecosystem Exchange, Gross Primary Production, Soil Heterotrophic Respiration, and Aboveground Net Primary Production"
+```
+
+#### Example B: Python API Invocations
+```python
+from aurelian.agents.ontology_mapper import ontology_mapper_agent, get_config
+
+config = get_config(ontologies=["ecso"])
+query = "Map Harvard Forest carbon flux variables: NEE (Net Ecosystem Exchange), GPP (Gross Primary Production), and soil heterotrophic respiration."
+result = ontology_mapper_agent.run_sync(query, deps=config)
+print(result.data)
+```
+
+### 5. Expected Output & Acceptance Criteria
+1. **Dimension Coverage**: Accurately maps terms across carbon exchange, component respiration, productivity pools, and micrometeorological drivers.
+2. **Identifier Normalization**: Returns valid CURIE identifiers formatted as `ECSO:0000...` matching Bioregistry format.
+3. **Semantic Disambiguation**:
+   - Correctly distinguishes Net Ecosystem Exchange (`ECSO:00000014`) from Gross Primary Production (`ECSO:00000020`) and Net Primary Production (`ECSO:00000021`).
+   - Resolves soil respiration to Soil Heterotrophic Respiration Carbon Flux (`ECSO:00000532`) rather than generic respiration.
+4. **Link Provenance**: Outputs standard hyperlinked Bioregistry URIs (`https://bioregistry.io/ECSO:...`).
+
+### 6. Verified Results
+
+| Measured Variable | ECSO Term ID | Term Label | Match Type | Bioregistry Link |
+| :--- | :--- | :--- | :--- | :--- |
+| **`NEE` (Net Ecosystem Exchange)** | `ECSO:00000014` | Net Ecosystem Exchange Carbon Flux | Exact / High | [ECSO:00000014](https://bioregistry.io/ECSO:00000014) |
+| **`GPP` (Gross Primary Production)** | `ECSO:00000020` | Gross Primary Production Carbon Flux | Exact / High | [ECSO:00000020](https://bioregistry.io/ECSO:00000020) |
+| **`RECO` (Ecosystem Respiration)** | `ECSO:00000016` | Respiration Carbon Flux | Exact / High | [ECSO:00000016](https://bioregistry.io/ECSO:00000016) |
+| **`R_SOIL_HET` (Soil Respiration)** | `ECSO:00000532` | Soil Heterotrophic Respiration Carbon Flux | Exact / High | [ECSO:00000532](https://bioregistry.io/ECSO:00000532) |
+| **`ANPP` (Aboveground NPP)** | `ECSO:00000301` | Aboveground Net Primary Production Carbon Flux | Exact / High | [ECSO:00000301](https://bioregistry.io/ECSO:00000301) |
+| **`TA` (Air Temperature)** | `ECSO:00000049` | Near_Surface_Air_Temperature_MOV | Exact / High | [ECSO:00000049](https://bioregistry.io/ECSO:00000049) |
+| **`TS` (Soil Temperature)** | `ECSO:00000053` | Average_Layer_Soil_Temperature_MOV | Exact / High | [ECSO:00000053](https://bioregistry.io/ECSO:0000053) |
+
+#### Term Provenance & Rationale:
+- **`ECSO:00000014` (`Net Ecosystem Exchange Carbon Flux`)**: Quantifies the net ecosystem exchange rate of carbon flux between biosphere and atmosphere.
+- **`ECSO:00000020` (`Gross Primary Production Carbon Flux`)**: Direct match for total photosynthetic carbon fixation rate before autotrophic respiration losses.
+- **`ECSO:00000016` (`Respiration Carbon Flux`)**: Broad class for ecosystem respiration ($R_{eco}$), defined as CO2 emitted by organisms to the environment per unit area and time.
+- **`ECSO:00000532` (`Soil Heterotrophic Respiration Carbon Flux`)**: Subclass of heterotrophic respiration representing microbial organic matter decomposition in soil.
+- **`ECSO:00000301` (`Aboveground Net Primary Production Carbon Flux`)**: Captures biomass production of aboveground plant tissue per unit area and time.
+- **`ECSO:00000049` (`Near_Surface_Air_Temperature_MOV`)** & **`ECSO:00000053` (`Average_Layer_Soil_Temperature_MOV`)**: Measurement observation values representing ambient microclimatic drivers.
+
